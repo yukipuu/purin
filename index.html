@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>謎の戦闘力メーター</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+                 "Yu Gothic", Meiryo, sans-serif;
+    background: linear-gradient(180deg, #fffaf3 0%, #f3fbf4 100%);
+    color: #4a3b35;
+  }
+  .app {
+    width: min(100%, 480px);
+    min-height: 100vh;
+    margin: auto;
+    padding: 22px 18px 40px;
+  }
+  .header { text-align: center; margin-bottom: 18px; }
+  .badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #e8f4e8;
+    color: #39734a;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  h1 { margin: 10px 0 4px; font-size: 29px; letter-spacing: .04em; }
+  .sub { margin: 0; color: #806f67; font-size: 13px; }
+
+  .card {
+    background: rgba(255,255,255,.92);
+    border: 1px solid #eadfd5;
+    border-radius: 24px;
+    padding: 20px;
+    box-shadow: 0 10px 28px rgba(91,72,58,.09);
+    margin-bottom: 16px;
+  }
+  label { display:block; font-weight:700; margin-bottom:8px; }
+  input[type="date"] {
+    width:100%; padding:13px 14px; border:2px solid #eadfd5;
+    border-radius:14px; font-size:16px; background:#fff;
+  }
+  .mood-head { display:flex; justify-content:space-between; align-items:center; }
+  .mood-value { color:#4c8b5a; font-weight:800; }
+  input[type="range"] { width:100%; accent-color:#4c8b5a; margin:14px 0 4px; }
+  .mood-labels { display:flex; justify-content:space-between; font-size:11px; color:#9a8980; }
+
+  button {
+    width:100%; border:0; border-radius:16px; padding:15px;
+    font-size:16px; font-weight:800; cursor:pointer;
+    background:#4c8b5a; color:white;
+    box-shadow:0 7px 15px rgba(76,139,90,.22);
+  }
+  button:active { transform:translateY(1px); }
+  .secondary { background:#eee7e0; color:#5e5048; box-shadow:none; margin-top:10px; }
+
+  .character {
+    display:block; width:190px; height:190px; object-fit:contain;
+    margin: -8px auto 4px;
+  }
+  .result { display:none; }
+  .result.show { display:block; }
+  .loading { text-align:center; padding:15px 0; }
+  .loading img { width:150px; height:150px; object-fit:contain; }
+  .loading p { font-weight:700; margin:4px 0 0; }
+
+  .power {
+    text-align:center; padding:16px; border-radius:20px;
+    background:linear-gradient(135deg,#fff4d9,#f8e9c9);
+    border:1px solid #efd9a9;
+  }
+  .power small { display:block; font-size:12px; color:#866f48; }
+  .power-num { font-size:54px; line-height:1; font-weight:900; margin:7px 0; color:#6b4d28; }
+  .rank { font-size:13px; font-weight:800; }
+
+  .stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .stat {
+    padding:12px; border-radius:15px; background:#faf7f3;
+    border:1px solid #eee4dc;
+  }
+  .stat-top { display:flex; justify-content:space-between; font-size:12px; }
+  .bar { height:8px; background:#e9e2dc; border-radius:99px; overflow:hidden; margin-top:7px; }
+  .fill { height:100%; width:0; background:#4c8b5a; border-radius:99px; transition:width .7s ease; }
+
+  .skill {
+    margin-top:14px; padding:16px; border-radius:18px;
+    background:#f4effb; border:1px solid #ddd0ef;
+  }
+  .skill-title { font-size:12px; color:#76579a; font-weight:800; }
+  .skill-name { font-size:21px; font-weight:900; margin:4px 0 7px; }
+  .comment {
+    margin-top:14px; padding:14px 15px; border-left:5px solid #4c8b5a;
+    background:#f4faf5; border-radius:12px; font-size:14px; line-height:1.65;
+  }
+  .tips {
+    margin-top:12px; padding:14px; background:#fff8e9;
+    border:1px solid #f0dfb7; border-radius:14px; font-size:13px; line-height:1.6;
+  }
+  .footer { text-align:center; color:#a3948b; font-size:11px; margin-top:18px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <span class="badge">🔬 謎の研究所・本日の解析</span>
+    <h1>謎の戦闘力メーター</h1>
+    <p class="sub">生年月日 × 今朝の機嫌から、本日のあなたを解析します。</p>
+  </div>
+
+  <section class="card" id="inputCard">
+    <label for="birth">🎂 生年月日</label>
+    <input id="birth" type="date">
+
+    <div style="height:18px"></div>
+
+    <div class="mood-head">
+      <label style="margin:0">🌞 今朝の機嫌</label>
+      <span class="mood-value" id="moodText">ふつう</span>
+    </div>
+    <input id="mood" type="range" min="0" max="4" value="2">
+    <div class="mood-labels">
+      <span>😴 低い</span><span>😐</span><span>🙂</span><span>😆</span><span>😈 全開</span>
+    </div>
+
+    <div style="height:18px"></div>
+    <button id="analyze">🔬 解析する！</button>
+  </section>
+
+  <section class="card loading" id="loading" style="display:none;">
+    <img src="researcher.PNG" alt="研究員">
+    <p>研究員があなたを解析中……</p>
+  </section>
+
+  <section class="card result" id="result">
+    <img id="resultCharacter" class="character" src="result.PNG" alt="診断結果">
+    <div class="power">
+      <small>本日の謎の戦闘力</small>
+      <div class="power-num" id="power">---</div>
+      <div class="rank" id="rank">解析完了</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-top"><b>HP</b><span id="hpNum">0</span></div><div class="bar"><div class="fill" id="hp"></div></div></div>
+      <div class="stat"><div class="stat-top"><b>MP</b><span id="mpNum">0</span></div><div class="bar"><div class="fill" id="mp"></div></div></div>
+      <div class="stat"><div class="stat-top"><b>攻撃力</b><span id="atkNum">0</span></div><div class="bar"><div class="fill" id="atk"></div></div></div>
+      <div class="stat"><div class="stat-top"><b>防御力</b><span id="defNum">0</span></div><div class="bar"><div class="fill" id="def"></div></div></div>
+    </div>
+
+    <div class="skill">
+      <div class="skill-title">🔥 本日の必殺技</div>
+      <div class="skill-name" id="skill">---</div>
+      <div id="skillDesc">---</div>
+    </div>
+
+    <div class="comment" id="comment">🔬 研究員メモ：---</div>
+    <div class="tips"><b>🍵 今日の攻略法</b><br><span id="tips">---</span></div>
+
+    <button class="secondary" id="again">もう一回診断する</button>
+  </section>
+
+  <div class="footer">※この診断は遊び心100％で生成されています。</div>
+</div>
+
+<script>
+const moodLabels = ["朝から省エネ","ちょっと眠い","ふつう","まあまあ元気","朝から戦闘態勢"];
+const skills = [
+  ["全力の二度寝","HPを回復しながら現実から一時離脱する。"],
+  ["冷蔵庫のプリン死守","大切なものを守るときだけ防御力が爆上がりする。"],
+  ["お茶を絶妙な温度で飲む","熱すぎず、ぬるすぎず。謎にこだわりが強い。"],
+  ["無言の圧","言葉を使わず相手にすべてを察してもらう高等技術。"],
+  ["やる気の前借り","今日の元気を午前中に使い切る禁断の必殺技。"],
+  ["とりあえず笑っとく","困ったときの万能スキル。意外と場が丸くなる。"],
+  ["おやつ探索モード","目的地は不明。でもなぜかお菓子売り場に到着する。"],
+  ["気合いだけは満タン","MPは少ないが、本人だけはできると思っている。"]
+];
+
+const comments = [
+  "本日の対象者は、やる気があるように見えて実はおやつを探している可能性があります。",
+  "非常に興味深い数値です。研究員としては、まずお茶を一杯おすすめします。",
+  "戦闘力は安定しています。ただし、プリンを勝手に食べられた場合は予測不能です。",
+  "今日のあなたは『まあ、なんとかなるやろ』という謎の強さを発揮するでしょう。",
+  "研究員メモ：無理をすると電池切れになります。ほどほどという技術も習得してください。"
+];
+
+function seedFromDate(dateStr, mood) {
+  let n = 0;
+  for (const c of dateStr) n = (n * 31 + c.charCodeAt(0)) % 100000;
+  n = (n + mood * 7919) % 100000;
+  return n;
+}
+function rand(seed, salt) {
+  const x = Math.sin(seed + salt * 999) * 43758.5453;
+  return x - Math.floor(x);
+}
+function stat(seed, base, mood, salt) {
+  return Math.max(1, Math.min(99, Math.round(base + rand(seed,salt)*35 + mood*5)));
+}
+
+const mood = document.getElementById("mood");
+const moodText = document.getElementById("moodText");
+mood.addEventListener("input", () => moodText.textContent = moodLabels[mood.value]);
+
+document.getElementById("analyze").addEventListener("click", () => {
+  const birth = document.getElementById("birth").value;
+  if (!birth) {
+    alert("まず生年月日を入れてね🎂");
+    return;
+  }
+
+  document.getElementById("inputCard").style.display = "none";
+  document.getElementById("result").classList.remove("show");
+  document.getElementById("loading").style.display = "block";
+
+  setTimeout(() => {
+    const m = Number(mood.value);
+    const seed = seedFromDate(birth, m);
+
+    const hp = stat(seed, 35, m, 1);
+    const mp = stat(seed, 30, m, 2);
+    const atk = stat(seed, 30, m, 3);
+    const def = stat(seed, 28, m, 4);
+    const power = Math.round((hp + mp + atk + def) * 1.75 + rand(seed,5)*60);
+
+    const skillIndex = Math.floor(rand(seed,6) * skills.length);
+    const commentIndex = Math.floor(rand(seed,7) * comments.length);
+
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("result").classList.add("show");
+
+    document.getElementById("power").textContent = power;
+    document.getElementById("rank").textContent =
+      power >= 700 ? "⚡ 超謎クラス" :
+      power >= 550 ? "🔥 かなり戦える" :
+      power >= 400 ? "✨ ほどよく戦える" : "🌱 本日は省エネ推奨";
+
+    [["hp",hp],["mp",mp],["atk",atk],["def",def]].forEach(([id,val]) => {
+      document.getElementById(id).style.width = val + "%";
+      document.getElementById(id+"Num").textContent = val;
+    });
+
+    document.getElementById("skill").textContent = skills[skillIndex][0];
+    document.getElementById("skillDesc").textContent = skills[skillIndex][1];
+    document.getElementById("comment").textContent = "🔬 研究員メモ：" + comments[commentIndex];
+
+    document.getElementById("tips").textContent =
+      m <= 1 ? "今日は省エネ運転でOK。まず水分補給して、できることからひとつずつ。" :
+      m === 2 ? "無理にテンションを上げなくて大丈夫。自分のペースを守るのが最適解。" :
+      m === 3 ? "勢いがあるうちに、面倒なことをひとつ片付けると気持ちよく進みそう。" :
+      "本日は戦闘態勢。……ただし、全力疾走は午前中だけにしてください。";
+
+    document.getElementById("resultCharacter").src =
+      power >= 650 ? "battle.PNG" :
+      power >= 500 ? "happy.PNG" :
+      power <= 330 ? "sleepy.PNG" : "good.PNG";
+  }, 1100);
+});
+
+document.getElementById("again").addEventListener("click", () => {
+  document.getElementById("result").classList.remove("show");
+  document.getElementById("inputCard").style.display = "block";
+  window.scrollTo({top:0, behavior:"smooth"});
+});
+</script>
+</body>
+</html>
